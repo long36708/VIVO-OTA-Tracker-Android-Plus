@@ -106,6 +106,9 @@ data class VivoOtaUiState(
     val manualCodename: String = "",
     val manualModelSwVer: String = "",
     val manualModelName: String = "",
+    // ===== 粘贴参数查询（vivo-hooker「复制明文参数」产物直接贴入查询）=====
+    val pasteMode: Boolean = false,
+    val pastedParams: String = "",
     val history: List<QueryHistoryEntry> = emptyList(),
     val historySelectionMode: Boolean = false,
     val selectedHistory: Set<Long> = emptySet(),

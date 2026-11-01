@@ -11,6 +11,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLDecoder
+import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,6 +38,47 @@ class VivoOtaClient(private val context: Context) {
         /** changelogDataUrl 的逆变换：还原出可在浏览器直接打开的 H5 页面地址。 */
         fun changelogPageUrl(url: String): String =
             url.replace(Regex("/data/[^/]+\\.js$"), "/index.html")
+
+        /**
+         * 解析粘贴的检查更新明文参数，返回保序键值对（值为明文）。
+         * 来源：vivo-hooker（Xposed 模块）「复制检查更新明文参数」——可读多行格式
+         * （每参数一行 k=v，值明文；多行值如 hwFingerprint JSON 以"行首匹配 key="分界还原），
+         * 兼容单行 URL 编码形态（k=v&…，值含 % 时解码）。
+         * 校验：必须含 swVer 与 isFull（检查更新请求家族标记），否则抛 IllegalArgumentException。
+         */
+        fun parsePastedParams(text: String): LinkedHashMap<String, String> {
+            val trimmed = text.trim()
+            require(trimmed.isNotEmpty()) { "参数为空" }
+            val pairs = LinkedHashMap<String, String>()
+            if (trimmed.contains('\n')) {
+                for (line in trimmed.split('\n')) {
+                    val l = line.trimEnd('\r')
+                    if (l.isBlank()) continue
+                    val m = Regex("^([\\w.]+?)=(.*)$").find(l)
+                    if (m != null) {
+                        pairs[m.groupValues[1]] = m.groupValues[2]
+                    } else if (pairs.isNotEmpty()) {
+                        // 不匹配 "key=" 的行 = 上一参数值里的换行（如指纹 JSON 的缩进行），原样拼回
+                        val lastKey = pairs.keys.last()
+                        pairs[lastKey] = pairs[lastKey] + "\n" + l
+                    }
+                }
+            } else {
+                for (seg in trimmed.split('&')) {
+                    val i = seg.indexOf('=')
+                    if (i <= 0) continue
+                    val k = seg.substring(0, i)
+                    val v = seg.substring(i + 1)
+                    pairs[k] = if (v.contains('%')) {
+                        runCatching { URLDecoder.decode(v, "UTF-8") }.getOrDefault(v)
+                    } else v
+                }
+            }
+            require(pairs.containsKey("swVer") && pairs.containsKey("isFull")) {
+                "不是有效的检查更新参数（缺少 swVer/isFull）"
+            }
+            return pairs
+        }
     }
 
     /** 可选择的升级服务器域名（参照升级检查接口协议分析.md）。 */
@@ -220,6 +262,45 @@ class VivoOtaClient(private val context: Context) {
 
         return parseResult(updateResponse, isPhone, modelSwVer, codename, swVersion, channel, domain)
     }
+
+    /**
+     * 粘贴参数查询：使用来自真实设备的检查更新明文参数（vivo-hooker「复制明文参数」产物）
+     * 原样加密发送，服务器按该设备的身份（含真实 hwFingerprint/imei/emmcid）返回更新。
+     * 全量包查询 retcode=210 时自动改增量重试（与 [query] 同策略）。
+     */
+    fun queryFromParams(pasted: String, domain: Domain = Domain.CN): VivoOtaResult {
+        val pairs = parsePastedParams(pasted)
+        var response = sendFreshEncryptedRequest(toWireParams(pairs), domain)
+        if (response.startsWith("[Error]")) {
+            throw RuntimeException(response)
+        }
+        val rc = extractRetcode(response)
+        if (pairs["isFull"] == "1" && rc == 210) {
+            Log.i(TAG, "全量包无更新(retcode=210)，自动改增量包重试")
+            val incPairs = LinkedHashMap(pairs)
+            incPairs["isFull"] = "0"
+            val incResp = sendFreshEncryptedRequest(toWireParams(incPairs), domain)
+            if (!incResp.startsWith("[Error]")) {
+                response = incResp
+            }
+        }
+        val dType = pairs["dType"] ?: "phone"
+        return parseResult(
+            updateResponse = response,
+            isPhone = dType == "phone",
+            modelSwVer = pairs["public_model"] ?: "",
+            codename = pairs["model"] ?: "",
+            swVersion = pairs["swVer"] ?: "",
+            channel = QueryChannel.NORMAL,
+            domain = domain
+        )
+    }
+
+    /** 明文键值对 → 线上形态（值 URL 编码；与 Updater 的 URLEncoder 规则一致，空格编码为 +）。 */
+    private fun toWireParams(pairs: Map<String, String>): String =
+        pairs.entries.joinToString("&") { (k, v) ->
+            "$k=" + URLEncoder.encode(v, "UTF-8")
+        }
 
     /** 公测/内测共用参数集，与 PC 版 buildBetaBaseParams 对应。 */
     private fun buildBetaBaseParams(

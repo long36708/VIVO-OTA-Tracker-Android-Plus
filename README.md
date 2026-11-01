@@ -8,6 +8,7 @@ By loading the native `libvivoseckey.so` library, this app processes the necessa
 
 **Core Features:**
 * 📦 **Firmware Fetching**: Query and extract firmware download direct links for various VIVO / iQOO models from official servers.
+* 📋 **Paste-Params Query**: Paste the plaintext check-request params copied from a hooked device (vivo-hooker "Copy check plaintext params") — the server responds as that device, so non-root devices can fetch the exact update package (incl. full/incremental auto-fallback and real TEE fingerprint).
 * 🔒 **Native Encryption**: Powered by `libvivoseckey.so` JNI engine — all encryption/decryption happens on-device, no server required.
 * 📱 **Multi-Device Support**: Built-in database of 14 series and 395+ models, plus manual input mode for devices not in the database.
 * 🔄 **Full / Incremental**: Query both full firmware packages and incremental OTA updates.

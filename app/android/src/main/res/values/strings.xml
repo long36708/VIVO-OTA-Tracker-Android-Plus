@@ -7,6 +7,12 @@
 
     <!-- Device selection -->
     <string name="manual_input">Manual input device info</string>
+    <string name="paste_params_toggle">Query with pasted params</string>
+    <string name="paste_params_label">Check-update plaintext params (from vivo-hooker "Copy check plaintext params")</string>
+    <string name="paste_params_query">Query update</string>
+    <string name="paste_params_summary_ok">Recognized: %1$s</string>
+    <string name="paste_params_summary_err">Invalid params: %1$s</string>
+    <string name="paste_params_hint">Paste the plaintext params copied from a hooked device (one key=value per line, plain-text values). The server responds as that device — non-root devices can thus fetch the update and direct link. Params contain device identity (imei/emmcid/hwFingerprint) — share carefully; the fingerprint is time-sensitive, re-copy if it expires.</string>
     <string name="label_codename">Codename (e.g. PD2408)</string>
     <string name="label_model_sw_ver">Public model (e.g. V2408A)</string>
     <string name="label_series">Series</string>

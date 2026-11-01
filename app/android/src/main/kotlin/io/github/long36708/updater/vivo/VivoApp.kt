@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
@@ -205,6 +206,8 @@ fun VivoApp(viewModel: VivoOtaViewModel = viewModel()) {
                 item { SnInputCard(state, viewModel) }
                 item { ChannelCard(state, viewModel) }
                 item { PackageTypeCard(state, viewModel) }
+
+                item { PasteParamsCard(state, viewModel) }
 
                 item { QueryButton(state, viewModel) }
 
@@ -474,6 +477,78 @@ private fun ManualInputCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) 
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
             )
+        }
+    }
+}
+
+@Composable
+private fun PasteParamsCard(state: VivoOtaUiState, viewModel: VivoOtaViewModel) {
+    Card(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                state = if (state.pasteMode) ToggleableState.On else ToggleableState.Off,
+                onClick = { viewModel.togglePasteMode() }
+            )
+            Text(
+                text = stringResource(R.string.paste_params_toggle),
+                modifier = Modifier.padding(start = 8.dp).clickable { viewModel.togglePasteMode() }
+            )
+        }
+        AnimatedVisibility(visible = state.pasteMode) {
+            Column {
+                TextField(
+                    insideMargin = DpSize(16.dp, 24.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 180.dp),
+                    value = state.pastedParams,
+                    onValueChange = { viewModel.updatePastedParams(it) },
+                    label = stringResource(R.string.paste_params_label)
+                )
+                // 解析摘要：识别成功显示机型/版本/包类型，失败显示原因
+                if (state.pastedParams.isNotBlank()) {
+                    val parsed = remember(state.pastedParams) {
+                        runCatching { VivoOtaClient.parsePastedParams(state.pastedParams) }
+                    }
+                    when {
+                        parsed.isSuccess -> {
+                            val p = parsed.getOrThrow()
+                            Text(
+                                text = stringResource(
+                                    R.string.paste_params_summary_ok,
+                                    "${p["model"]} · ${p["swVer"]} · isFull=${p["isFull"]}"
+                                ),
+                                fontSize = 11.sp,
+                                color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                            )
+                        }
+                        else -> Text(
+                            text = stringResource(
+                                R.string.paste_params_summary_err,
+                                parsed.exceptionOrNull()?.message ?: ""
+                            ),
+                            fontSize = 11.sp,
+                            color = Color(0xFFF44336),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                Text(
+                    text = stringResource(R.string.paste_params_hint),
+                    fontSize = 11.sp,
+                    color = MiuixTheme.colorScheme.onSurfaceVariantSummary,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+                Button(
+                    onClick = { viewModel.queryPasted() },
+                    enabled = state.cryptoReady && !state.isLoading && state.pastedParams.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Text(stringResource(R.string.paste_params_query))
+                }
+            }
         }
     }
 }

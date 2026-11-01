@@ -7,6 +7,12 @@
 
     <!-- Device selection -->
     <string name="manual_input">手动输入设备信息</string>
+    <string name="paste_params_toggle">粘贴参数查询</string>
+    <string name="paste_params_label">检查更新明文参数（来自 vivo-hooker「复制明文参数」）</string>
+    <string name="paste_params_query">查询更新</string>
+    <string name="paste_params_summary_ok">已识别：%1$s</string>
+    <string name="paste_params_summary_err">参数无效：%1$s</string>
+    <string name="paste_params_hint">粘贴从已 hook 设备复制的明文参数（每行一个 key=value，值为明文，自动编码后发送）。服务器将按该设备的身份返回更新与直链——非 root 设备借此获取更新包。参数含设备标识（imei/emmcid/hwFingerprint），分享时注意隐私；指纹有时效性，过期请重新复制。</string>
     <string name="label_codename">代号 (如: PD2408)</string>
     <string name="label_model_sw_ver">公开型号 (如: V2408A)</string>
     <string name="label_series">系列</string>

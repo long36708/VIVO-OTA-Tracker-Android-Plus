@@ -50,11 +50,97 @@ class VivoOtaViewModel : ViewModel() {
         VivoDeviceDatabase.load(ctx)
         client = VivoOtaClient(ctx)
         loadHistory()
+        loadPastedParams()
         initCrypto()
         applyDefaultSelection()
         refreshDevices()
         loadDeviceImei()
         maybeCheckAppUpdate()
+    }
+
+    /** 恢复上次粘贴的参数（编辑即持久化，重装/重启后可继续用）。 */
+    private fun loadPastedParams() {
+        val saved = prefs.getString("pasted_params", "") ?: ""
+        if (saved.isNotEmpty()) {
+            _uiState.update { it.copy(pastedParams = saved) }
+        }
+    }
+
+    /** ===== 粘贴参数查询（vivo-hooker「复制明文参数」→ 非root 设备直接查更新）===== */
+
+    fun togglePasteMode() {
+        _uiState.update { it.copy(pasteMode = !it.pasteMode) }
+    }
+
+    fun updatePastedParams(v: String) {
+        _uiState.update { it.copy(pastedParams = v) }
+        prefs.edit().putString("pasted_params", v).apply()
+        clearStaleQueryResult()
+    }
+
+    /**
+     * 用粘贴的明文参数查询：服务端按参数所属真实设备的身份返回更新与下载地址。
+     * 参数来自已 hook 设备的「复制明文参数」（含真实 hwFingerprint 签名，存在时效性）。
+     */
+    fun queryPasted() {
+        val state = _uiState.value
+        if (!state.cryptoReady) return
+        if (state.isLoading) return
+        val text = state.pastedParams.trim()
+        if (text.isEmpty()) return
+
+        _uiState.update { it.copy(isLoading = true, error = null, result = null) }
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val pairs = VivoOtaClient.parsePastedParams(text)
+                val result = client.queryFromParams(text, VivoOtaClient.Domain.valueOf(state.queryDomain))
+
+                val hasUpdate = result.updateVersion.isNotEmpty() &&
+                        result.updateVersion != "(Not found)" &&
+                        result.filename.isNotEmpty() &&
+                        result.filename != "(Not found)"
+
+                val ctx = AndroidAppContext.getApplicationContext()!!
+                if (hasUpdate) {
+                    val model = pairs["model"] ?: ""
+                    val swVer = pairs["swVer"] ?: ""
+                    addToHistory(
+                        model = model,
+                        codename = model,
+                        swVersion = swVer,
+                        result = result,
+                        querySoftwareVersion = swVer,
+                        manualMode = true,
+                        manualCodename = model,
+                        manualModelSwVer = pairs["public_model"] ?: "",
+                        manualModelName = pairs["public_model"] ?: model,
+                        androidVersion = state.androidVersion,
+                        deviceType = if ((pairs["dType"] ?: "phone") == "phone") "phone" else "tablet",
+                        isFullPackage = pairs["isFull"] == "1",
+                        queryChannel = state.queryChannel,
+                        queryDomain = state.queryDomain,
+                        changelogUrl = result.changelogUrl
+                    )
+                    _uiState.update {
+                        it.copy(isLoading = false, result = result, toastMessage = ctx.getString(R.string.toast_success))
+                    }
+                    if (result.changelogUrl.isNotEmpty() && result.changelogUrl != "(Not found)") {
+                        _uiState.update { it.copy(changelogContent = "loading") }
+                        fetchChangelog(result.changelogUrl)
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(isLoading = false, result = result, toastMessage = ctx.getString(R.string.toast_no_update))
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("VivoOtaViewModel", "Pasted params query failed", e)
+                _uiState.update {
+                    it.copy(isLoading = false, error = e.message ?: "Unknown error")
+                }
+            }
+        }
     }
 
     /** 启动 / 手动刷新时读取本机 IMEI；读不到则退化为随机值，保证请求里的 imei 字段始终有效。 */
