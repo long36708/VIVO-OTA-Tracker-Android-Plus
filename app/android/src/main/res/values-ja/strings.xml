@@ -92,6 +92,8 @@
 
     <!-- Payload Dumper -->
     <string name="payload_dumper">パーティション一覧</string>
+    <string name="payload_view_metadata">metadata を表示</string>
+    <string name="zip_metadata_not_found">META-INF/com/android/metadata が見つかりません</string>
     <string name="payload_loading">パーティションリストを読み込み中…</string>
     <string name="parse">解析</string>
     <string name="error">エラー</string>

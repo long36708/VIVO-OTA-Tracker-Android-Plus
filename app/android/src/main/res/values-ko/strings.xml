@@ -92,6 +92,8 @@
 
     <!-- Payload Dumper -->
     <string name="payload_dumper">파티션 목록 보기</string>
+    <string name="payload_view_metadata">metadata 보기</string>
+    <string name="zip_metadata_not_found">패키지에 META-INF/com/android/metadata이(가) 없습니다</string>
     <string name="payload_loading">파티션 목록 로드 중…</string>
     <string name="parse">분석</string>
     <string name="error">오류</string>

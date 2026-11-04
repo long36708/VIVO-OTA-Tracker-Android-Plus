@@ -136,6 +136,8 @@
 
     <!-- Payload Dumper -->
     <string name="payload_dumper">View partition list</string>
+    <string name="payload_view_metadata">View metadata</string>
+    <string name="zip_metadata_not_found">META-INF/com/android/metadata not found in this package</string>
     <string name="payload_loading">Loading partition list…</string>
     <string name="parse">Parse</string>
     <string name="error">Error</string>

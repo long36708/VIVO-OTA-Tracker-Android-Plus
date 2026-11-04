@@ -92,6 +92,8 @@
 
     <!-- Payload Dumper -->
     <string name="payload_dumper">ดูรายการพาร์ติชัน</string>
+    <string name="payload_view_metadata">ดู metadata</string>
+    <string name="zip_metadata_not_found">ไม่พบ META-INF/com/android/metadata ในแพ็กเกจ</string>
     <string name="payload_loading">กำลังโหลดรายการพาร์ติชัน…</string>
     <string name="parse">แยกวิเคราะห์</string>
     <string name="error">ข้อผิดพลาด</string>

@@ -92,6 +92,8 @@
 
     <!-- Payload Dumper -->
     <string name="payload_dumper">查看分區列表</string>
+    <string name="payload_view_metadata">檢視 metadata</string>
+    <string name="zip_metadata_not_found">套件內找不到 META-INF/com/android/metadata</string>
     <string name="payload_loading">正在載入分區列表…</string>
     <string name="parse">解析</string>
     <string name="error">錯誤</string>

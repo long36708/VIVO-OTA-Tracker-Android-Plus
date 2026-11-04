@@ -92,6 +92,8 @@
 
     <!-- Payload Dumper -->
     <string name="payload_dumper">Просмотр списка разделов</string>
+    <string name="payload_view_metadata">Показать metadata</string>
+    <string name="zip_metadata_not_found">Файл META-INF/com/android/metadata не найден в пакете</string>
     <string name="payload_loading">Загрузка списка разделов…</string>
     <string name="parse">Разобрать</string>
     <string name="error">Ошибка</string>

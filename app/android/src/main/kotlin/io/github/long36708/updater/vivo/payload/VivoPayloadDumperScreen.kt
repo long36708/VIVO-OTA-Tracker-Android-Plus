@@ -335,6 +335,33 @@ fun PayloadDumperScreen(
                                 viewModel.loadZipEntries(context)
                             }
                         )
+                        // REMOTE_ZIP_STREAM_PARSING §2.8：metadata 旁路直读入口。
+                        // 解析成功后才可用（根数据源依赖 HttpUtil 会话）。
+                        if (uiState.archiveInfo != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp),
+                                horizontalArrangement = Arrangement.End
+                            ) {
+                                // 自绘紧凑文字按钮：与 PartitionItem「提取」同款，规避 miuix
+                                // Button contentPadding 裁切短文案的问题
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(MiuixTheme.colorScheme.primary)
+                                        .clickable { viewModel.previewMetadata(context) }
+                                        .padding(horizontal = 14.dp, vertical = 7.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.payload_view_metadata),
+                                        fontSize = 13.sp,
+                                        color = Color.White
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
 

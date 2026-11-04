@@ -92,6 +92,8 @@
 
     <!-- Payload Dumper -->
     <string name="payload_dumper">Lihat daftar partisi</string>
+    <string name="payload_view_metadata">Lihat metadata</string>
+    <string name="zip_metadata_not_found">META-INF/com/android/metadata tidak ditemukan dalam paket</string>
     <string name="payload_loading">Memuat daftar partisi…</string>
     <string name="parse">Uraikan</string>
     <string name="error">Kesalahan</string>

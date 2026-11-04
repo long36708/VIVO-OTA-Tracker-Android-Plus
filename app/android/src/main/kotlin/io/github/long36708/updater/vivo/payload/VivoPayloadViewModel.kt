@@ -32,6 +32,11 @@ class VivoPayloadViewModel : ViewModel() {
 
     private var currentPayload: Payload? = null
 
+    private companion object {
+        /** OTA 包内机型/版本元数据文件的固定路径（REMOTE_ZIP_STREAM_PARSING §2.8）。 */
+        const val METADATA_ENTRY_NAME = "META-INF/com/android/metadata"
+    }
+
     // ===== zip 容器内文件浏览（ADR-001 / L0）=====
 
     private val _zipState = MutableStateFlow(ZipBrowserState())
@@ -627,64 +632,9 @@ class VivoPayloadViewModel : ViewModel() {
                     preview = if (loadFull) _zipState.value.preview else null
                 )
                 try {
-                    val source = zipStack.lastOrNull()?.source
-                    if (source == null) {
-                        _zipState.value = _zipState.value.copy(isPreviewLoading = false)
-                        return@withLock
-                    }
-                    val maxOutput = if (loadFull) {
-                        ZipEntryInfo.DOWNLOAD_LIMIT_BYTES
-                    } else {
-                        ZipEntryInfo.PREVIEW_BYTES.toLong()
-                    }
-                    val maxInput = if (loadFull) {
-                        Long.MAX_VALUE
-                    } else {
-                        VivoZipBrowser.PREVIEW_INPUT_BYTES.toLong()
-                    }
-                    val data = VivoZipBrowser.readEntryBytes(source, entry, maxOutput, maxInput)
-
-                    // 签名块（CERT.RSA 等）是 DER 二进制，走证书解析而非文本嗅探
-                    if (entry.isSignatureBlock) {
-                        val desc = VivoZipBrowser.decodeSignatureBlock(data.bytes)
-                            ?: context.getString(R.string.zip_preview_not_text)
-                        _zipState.value = _zipState.value.copy(
-                            isPreviewLoading = false,
-                            preview = TextPreview(
-                                text = desc,
-                                encoding = "DER / X.509",
-                                bytesLoaded = data.bytes.size.toLong(),
-                                totalSize = entry.uncompressedSize,
-                                truncated = false,
-                                canCopyAll = desc.toByteArray().size <= ZipEntryInfo.CLIPBOARD_LIMIT_BYTES
-                            )
-                        )
-                        return@withLock
-                    }
-
-                    // ADR-001 D6：白名单只决定「是否给入口」，能否预览由内容嗅探拍板。
-                    // 这样无扩展名的 metadata / updater-script 能进，而 .pb 会被 NUL 拦截。
-                    if (!VivoZipBrowser.looksLikeText(data.bytes)) {
-                        _zipState.value = _zipState.value.copy(
-                            isPreviewLoading = false,
-                            previewError = context.getString(R.string.zip_preview_not_text)
-                        )
-                        return@withLock
-                    }
-                    val (text, encoding) = VivoZipBrowser.decodeText(data.bytes)
-                    val truncated = !data.complete
-                    _zipState.value = _zipState.value.copy(
-                        isPreviewLoading = false,
-                        preview = TextPreview(
-                            text = text,
-                            encoding = encoding,
-                            bytesLoaded = data.bytes.size.toLong(),
-                            totalSize = entry.uncompressedSize,
-                            truncated = truncated,
-                            // 截断时复制的是「已加载部分」，仍允许（ADR-001 D9）
-                            canCopyAll = text.toByteArray().size <= ZipEntryInfo.CLIPBOARD_LIMIT_BYTES
-                        )
-                    )
+                    // 未打开过「包内文件」时 zipStack 为空（如分区列表页一键预览），回退根数据源
+                    val source = zipStack.lastOrNull()?.source ?: acquireRootSource()
+                    readAndSetPreview(source, entry, loadFull, context)
                 } catch (e: Exception) {
                     _zipState.value = _zipState.value.copy(
                         isPreviewLoading = false,
@@ -693,6 +643,71 @@ class VivoPayloadViewModel : ViewModel() {
                 }
             }
         }
+    }
+
+    /**
+     * 预览读取公共实现：读条目字节 → 签名块/文本嗅探分流 → 写 preview 状态。
+     * 调用方必须已持有 zipMutex，并先把 previewEntry/isPreviewLoading 置好。
+     */
+    private suspend fun readAndSetPreview(
+        source: ZipByteSource,
+        entry: ZipEntryInfo,
+        loadFull: Boolean,
+        context: Context
+    ) {
+        val maxOutput = if (loadFull) {
+            ZipEntryInfo.DOWNLOAD_LIMIT_BYTES
+        } else {
+            ZipEntryInfo.PREVIEW_BYTES.toLong()
+        }
+        val maxInput = if (loadFull) {
+            Long.MAX_VALUE
+        } else {
+            VivoZipBrowser.PREVIEW_INPUT_BYTES.toLong()
+        }
+        val data = VivoZipBrowser.readEntryBytes(source, entry, maxOutput, maxInput)
+
+        // 签名块（CERT.RSA 等）是 DER 二进制，走证书解析而非文本嗅探
+        if (entry.isSignatureBlock) {
+            val desc = VivoZipBrowser.decodeSignatureBlock(data.bytes)
+                ?: context.getString(R.string.zip_preview_not_text)
+            _zipState.value = _zipState.value.copy(
+                isPreviewLoading = false,
+                preview = TextPreview(
+                    text = desc,
+                    encoding = "DER / X.509",
+                    bytesLoaded = data.bytes.size.toLong(),
+                    totalSize = entry.uncompressedSize,
+                    truncated = false,
+                    canCopyAll = desc.toByteArray().size <= ZipEntryInfo.CLIPBOARD_LIMIT_BYTES
+                )
+            )
+            return
+        }
+
+        // ADR-001 D6：白名单只决定「是否给入口」，能否预览由内容嗅探拍板。
+        // 这样无扩展名的 metadata / updater-script 能进，而 .pb 会被 NUL 拦截。
+        if (!VivoZipBrowser.looksLikeText(data.bytes)) {
+            _zipState.value = _zipState.value.copy(
+                isPreviewLoading = false,
+                previewError = context.getString(R.string.zip_preview_not_text)
+            )
+            return
+        }
+        val (text, encoding) = VivoZipBrowser.decodeText(data.bytes)
+        val truncated = !data.complete
+        _zipState.value = _zipState.value.copy(
+            isPreviewLoading = false,
+            preview = TextPreview(
+                text = text,
+                encoding = encoding,
+                bytesLoaded = data.bytes.size.toLong(),
+                totalSize = entry.uncompressedSize,
+                truncated = truncated,
+                // 截断时复制的是「已加载部分」，仍允许（ADR-001 D9）
+                canCopyAll = text.toByteArray().size <= ZipEntryInfo.CLIPBOARD_LIMIT_BYTES
+            )
+        )
     }
 
     fun dismissPreview() {
@@ -704,6 +719,39 @@ class VivoPayloadViewModel : ViewModel() {
         )
     }
 
+    /**
+     * 一键查看 META-INF/com/android/metadata（REMOTE_ZIP_STREAM_PARSING §2.8 旁路直读）。
+     * 在根源的 central directory 里定位条目后复用预览管线展示，分区列表页据此弹出预览页。
+     * 需在解析成功后调用（根数据源依赖 HttpUtil 会话）。
+     */
+    fun previewMetadata(context: Context) {
+        viewModelScope.launch {
+            zipMutex.withLock {
+                try {
+                    val source = acquireRootSource()
+                    val entry = VivoZipBrowser.listZipEntries(source)
+                        .firstOrNull { it.name == METADATA_ENTRY_NAME }
+                    if (entry == null) {
+                        _zipMessage.emit(context.getString(R.string.zip_metadata_not_found))
+                        return@withLock
+                    }
+                    _zipState.value = _zipState.value.copy(
+                        previewEntry = entry,
+                        isPreviewLoading = true,
+                        previewError = null,
+                        preview = null
+                    )
+                    readAndSetPreview(source, entry, loadFull = false, context)
+                } catch (e: Exception) {
+                    _zipState.value = _zipState.value.copy(
+                        isPreviewLoading = false,
+                        previewError = context.getString(mapZipErrorRes(e.message))
+                    )
+                }
+            }
+        }
+    }
+
     /** ADR-001 D3/D12：≤10MB 才可下载，落盘后校验 CRC32 佐证流式 Range 拼接未错位。 */
     fun downloadEntry(context: Context, entry: ZipEntryInfo) {
         viewModelScope.launch {
@@ -712,11 +760,8 @@ class VivoPayloadViewModel : ViewModel() {
                     _zipMessage.emit(context.getString(R.string.zip_download_too_large))
                     return@withLock
                 }
-                val source = zipStack.lastOrNull()?.source
-                if (source == null) {
-                    _zipMessage.emit(context.getString(R.string.zip_err_generic))
-                    return@withLock
-                }
+                // 未打开过「包内文件」时 zipStack 为空，回退根数据源（分区列表页一键预览后的下载）
+                val source = zipStack.lastOrNull()?.source ?: acquireRootSource()
                 _zipState.value = _zipState.value.copy(downloadingEntryName = entry.name)
                 val displayName = sanitizeFileName(entry.name.substringAfterLast('/'))
                 try {

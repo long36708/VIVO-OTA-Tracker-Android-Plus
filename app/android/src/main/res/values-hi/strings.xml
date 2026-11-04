@@ -92,6 +92,8 @@
 
     <!-- Payload Dumper -->
     <string name="payload_dumper">पार्टिशन सूची देखें</string>
+    <string name="payload_view_metadata">metadata देखें</string>
+    <string name="zip_metadata_not_found">पैकेज में META-INF/com/android/metadata नहीं मिला</string>
     <string name="payload_loading">पार्टिशन सूची लोड हो रहा है…</string>
     <string name="parse">पार्स करें</string>
     <string name="error">त्रुटि</string>
