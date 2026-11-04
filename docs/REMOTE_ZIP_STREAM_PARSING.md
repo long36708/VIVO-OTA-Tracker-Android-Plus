@@ -188,6 +188,11 @@ dataOffset = 24 + manifest_size + metadata_signature_size
 远程 ZIP 中该条目若被压缩，明确提示「远程 ZIP 的 metadata 可能被压缩，暂不支持直接提取」，
 而不是静默失败。
 
+> **实现注记（本项目）**：已落地为分区列表页的「查看 metadata」一键按钮
+> （`VivoPayloadViewModel.previewMetadata`）：根源 central directory 定位条目后
+> 复用 `ZipPreviewScreen` 预览管线。压缩条目不按本节「明确提示不支持」处理，
+> 而是由 `readEntryBytes` 的 inflateRaw 通路直接解压读取（上限 8KB 预览）。
+
 ### 2.9 旁路二：通用 ZIP 模式（无 payload.bin）
 
 对「远程 URL 以 `.zip` 结尾 + 条目里没有 `payload.bin`」（典型 recovery 全量包）：

@@ -92,6 +92,8 @@
 
     <!-- Payload Dumper -->
     <string name="payload_dumper">Xem danh sách phân vùng</string>
+    <string name="payload_view_metadata">Xem metadata</string>
+    <string name="zip_metadata_not_found">Không tìm thấy META-INF/com/android/metadata trong gói</string>
     <string name="payload_loading">Đang tải danh sách phân vùng…</string>
     <string name="parse">Phân tích</string>
     <string name="error">Lỗi</string>
